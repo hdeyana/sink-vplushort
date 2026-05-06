@@ -1,5 +1,5 @@
 import type { Link } from '@/types'
-import { parsePath, withQuery } from 'ufo'
+import { parsePath, parseURL, withQuery } from 'ufo'
 
 const SOCIAL_BOTS = [
   'applebot',
@@ -45,6 +45,18 @@ function getDeviceRedirectUrl(userAgent: string, link: Link): string | null {
 
 function hasOgConfig(link: Link): boolean {
   return !!(link.title || link.image)
+}
+
+// Append incoming query params to a URL, but never overwrite keys
+// the URL already carries (store deep-links often pin their own params).
+function appendMissingQuery(url: string, query: Record<string, any>): string {
+  const existing = new URLSearchParams(parseURL(url).search || '')
+  const toAdd: Record<string, any> = {}
+  for (const [key, value] of Object.entries(query)) {
+    if (!existing.has(key))
+      toAdd[key] = value
+  }
+  return Object.keys(toAdd).length ? withQuery(url, toAdd) : url
 }
 
 export default eventHandler(async (event) => {
@@ -144,7 +156,10 @@ export default eventHandler(async (event) => {
 
       const deviceRedirectUrl = getDeviceRedirectUrl(userAgent, link)
       if (deviceRedirectUrl) {
-        return sendRedirect(event, deviceRedirectUrl, +redirectStatusCode)
+        const deviceTarget = shouldRedirectWithQuery
+          ? appendMissingQuery(deviceRedirectUrl, query)
+          : deviceRedirectUrl
+        return sendRedirect(event, deviceTarget, +redirectStatusCode)
       }
 
       if (isSocialBot(userAgent) && hasOgConfig(link)) {

@@ -30,4 +30,54 @@ describe('/', () => {
     expect(response.status).toBe(301)
     expect(response.headers.get('Location')).toBe(apple)
   })
+
+  it('forwards extra query params to store URL when redirectWithQuery is enabled', async () => {
+    const slug = `android-q-${crypto.randomUUID()}`
+    const google = 'https://play.google.com/store/apps/details?id=com.example.app'
+
+    const createResponse = await postJson('/api/link/create', {
+      url: 'https://example.com',
+      slug,
+      google,
+      redirectWithQuery: true,
+    })
+    expect(createResponse.status).toBe(201)
+
+    const response = await fetch(`/${slug}?utm_source=newsletter&id=should-not-overwrite`, {
+      redirect: 'manual',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36',
+      },
+    })
+
+    expect(response.status).toBe(301)
+    const location = response.headers.get('Location') || ''
+    // Original store params must be preserved (id=com.example.app not overwritten)
+    expect(location).toContain('id=com.example.app')
+    expect(location).not.toContain('id=should-not-overwrite')
+    // New params must be appended
+    expect(location).toContain('utm_source=newsletter')
+  })
+
+  it('does not forward query to store URL when redirectWithQuery is disabled', async () => {
+    const slug = `android-noq-${crypto.randomUUID()}`
+    const google = 'https://play.google.com/store/apps/details?id=com.example.noq'
+
+    const createResponse = await postJson('/api/link/create', {
+      url: 'https://example.com',
+      slug,
+      google,
+    })
+    expect(createResponse.status).toBe(201)
+
+    const response = await fetch(`/${slug}?utm_source=newsletter`, {
+      redirect: 'manual',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36',
+      },
+    })
+
+    expect(response.status).toBe(301)
+    expect(response.headers.get('Location')).toBe(google)
+  })
 })
