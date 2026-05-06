@@ -28,7 +28,7 @@
   "analytics_engine_datasets": [
     {
       "binding": "ANALYTICS",
-      "dataset": "sink-vplushrot"
+      "dataset": "sink_vplushort"
     }
   ],
   "kv_namespaces": [
